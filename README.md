@@ -163,4 +163,4 @@ player.progress();                     // 0~1，可直接绑定进度条
 
 ## License
 
-私有项目，暂未选择开源协议。
+[MIT](./LICENSE).

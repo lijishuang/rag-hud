@@ -18,6 +18,6 @@
     "knowledge-base",
     "vector-database"
   ],
-  "license": "UNLICENSED",
-  "private": true
+  "license": "MIT",
+  "private": false
 }
