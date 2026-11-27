@@ -66,6 +66,14 @@ hud.token('逐');  hud.token('字');
 hud.done({ tokens: 128, latency: 2.1 });
 ```
 
+TypeScript 项目直接使用 `hud.d.ts`，`create()`、事件回调与全部方法的类型均已声明：
+
+```ts
+import { create, type HudOptions } from 'rag-hud';
+
+const hud = create(canvas, { slotCount: 64 } satisfies HudOptions);
+```
+
 ## SSE 事件协议
 
 服务端返回 `text/event-stream`，事件格式为 `event: <name>\ndata: <json>\n\n`。
@@ -120,6 +128,7 @@ res.write(`event: stage\ndata: ${JSON.stringify({ name: 'retrieve' })}\n\n`);
 ```
 .
 ├── hud.js                 # 可视化库（IIFE + CommonJS）
+├── hud.d.ts               # TypeScript 类型声明
 ├── rag-hud-demo.html      # 演示页：HTML 面板 + SSE 接线
 ├── mock-sse-server.js     # 本地 mock RAG 后端（零依赖）
 └── docs/images/           # 截图

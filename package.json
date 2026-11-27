@@ -1,0 +1,23 @@
+{
+  "name": "rag-hud",
+  "version": "1.0.0",
+  "description": "Knowledge-base data-flow visualizer for RAG pipelines",
+  "main": "hud.js",
+  "types": "hud.d.ts",
+  "files": [
+    "hud.js",
+    "hud.d.ts",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "keywords": [
+    "rag",
+    "data-visualization",
+    "canvas",
+    "sse",
+    "knowledge-base",
+    "vector-database"
+  ],
+  "license": "UNLICENSED",
+  "private": true
+}
