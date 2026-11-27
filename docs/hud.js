@@ -873,6 +873,7 @@
         var q = options.query || '';
         var opened = false;
         var closed = false;
+        var msgCount = 0;
 
         function connect() {
           if (closed) return;
@@ -887,36 +888,40 @@
             if (options.onStatus) options.onStatus('live');
           };
           es.onerror = function () {
-            if (!opened) {
+            // readyState 变成 CLOSED 且从未收到消息，判定为首次连接失败
+            // 浏览器在 EventSource 连接拒绝时会先触发一次瞬时 onopen 再立刻 onerror，
+            // 所以不能再用 opened 标志作为判断依据
+            if (es.readyState === EventSource.CLOSED && msgCount === 0) {
               es.close();
               sse = null;
+              opened = false;
               if (options.onStatus) options.onStatus('offline');
               if (options.onFail) options.onFail();
             }
           };
           es.addEventListener('meta', function (e) {
+            msgCount++;
             var d = JSON.parse(e.data);
             if (options.onMeta) options.onMeta(d);
             if (d.model) pushLog('[meta] model=' + d.model);
           });
-          es.addEventListener('stage', function (e) {
-            var d = JSON.parse(e.data);
+          es.addEventListener('stage', function (e) { msgCount++; var d = JSON.parse(e.data);
             setStage(d.name, d.progress);
           });
-          es.addEventListener('candidates', function (e) {
+          es.addEventListener('candidates', function (e) { msgCount++;
             api.setCandidates(JSON.parse(e.data).chunks);
           });
-          es.addEventListener('hits', function (e) {
+          es.addEventListener('hits', function (e) { msgCount++;
             var d = JSON.parse(e.data);
             setHits(d.chunks || [], d);
           });
-          es.addEventListener('token', function (e) {
+          es.addEventListener('token', function (e) { msgCount++;
             pushToken(JSON.parse(e.data).text);
           });
-          es.addEventListener('log', function (e) {
+          es.addEventListener('log', function (e) { msgCount++;
             pushLog(JSON.parse(e.data).text);
           });
-          es.addEventListener('done', function (e) {
+          es.addEventListener('done', function (e) { msgCount++;
             var d = JSON.parse(e.data);
             finish(d);
             pushLog('[done] tokens=' + app.tokens +
