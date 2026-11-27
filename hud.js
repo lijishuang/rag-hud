@@ -884,12 +884,13 @@
           catch (e) { if (options.onFail) options.onFail(e); return; }
 
           sse = es;
+          var live = false;
 
           // 浏览器 EventSource 在连接被拒绝时不会把 readyState 变成 CLOSED，
           // 会永远停在 CONNECTING 并持续重连。因此加一个首次消息超时：
           // 5 秒内未收到任何事件 → 判定离线，主动关闭并回调 onFail。
           var watchdog = setTimeout(function () {
-            if (msgCount === 0) {
+            if (!live && msgCount === 0) {
               try { es.close(); } catch (_) {}
               sse = null;
               if (!firstFail) {
@@ -902,14 +903,12 @@
 
           es.onopen = function () {
             opened = true;
-            if (options.onStatus) options.onStatus('live');
+            // 只有收到至少一条消息后 onopen 才意味着真正连上，
+            // 否则浏览器对 localhost 的连接拒绝也会先瞬时触发一次 onopen
           };
           es.onerror = function () {
-            // 已经被 watchdog 处理过首次失败则不再重复
             if (firstFail) return;
-            // 如果 readyState 确实变成 CLOSED（Chrome 的 ERR_CONNECTION_REFUSED 路径），
-            // 也一并触发离线逻辑；正常运行期的重连错误不计入
-            if (es.readyState === EventSource.CLOSED && msgCount === 0) {
+            if (!live && es.readyState === EventSource.CLOSED && msgCount === 0) {
               clearTimeout(watchdog);
               firstFail = true;
               if (options.onStatus) options.onStatus('offline');
@@ -918,27 +917,35 @@
           };
           es.addEventListener('meta', function (e) {
             msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
             var d = JSON.parse(e.data);
             if (options.onMeta) options.onMeta(d);
             if (d.model) pushLog('[meta] model=' + d.model);
           });
-          es.addEventListener('stage', function (e) { msgCount++; var d = JSON.parse(e.data);
+          es.addEventListener('stage', function (e) { msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
+            var d = JSON.parse(e.data);
             setStage(d.name, d.progress);
           });
           es.addEventListener('candidates', function (e) { msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
             api.setCandidates(JSON.parse(e.data).chunks);
           });
           es.addEventListener('hits', function (e) { msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
             var d = JSON.parse(e.data);
             setHits(d.chunks || [], d);
           });
           es.addEventListener('token', function (e) { msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
             pushToken(JSON.parse(e.data).text);
           });
           es.addEventListener('log', function (e) { msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
             pushLog(JSON.parse(e.data).text);
           });
           es.addEventListener('done', function (e) { msgCount++;
+            if (!live) { live = true; clearTimeout(watchdog); if (options.onStatus) options.onStatus('live'); }
             var d = JSON.parse(e.data);
             finish(d);
             pushLog('[done] tokens=' + app.tokens +
