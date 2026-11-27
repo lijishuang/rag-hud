@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="Knowledge-base data-flow visualizer for RAG pipelines — directed packet streams, SSE-driven, zero-dependency Canvas 2D." />
+<meta property="og:title" content="rag-hud · RAG 数据流可视化" />
+<meta property="og:description" content="把知识库写入与 RAG 检索过程渲染成有方向的数据流。" />
+<meta property="og:image" content="./docs/images/overview.jpg" />
+<title>rag-hud · RAG 数据流可视化</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"SF Pro Text","PingFang SC",system-ui,-apple-system,sans-serif;
+       background:#05070a;color:#e8f6ff;display:flex;align-items:center;justify-content:center;min-height:100vh}
+  a{color:#32f08c;text-decoration:none}
+  .card{max-width:620px;padding:48px 40px;border:1px solid rgba(232,246,255,.14);
+        border-radius:2px;background:rgba(10,14,20,.7);backdrop-filter:blur(4px);text-align:center}
+  h1{font-size:22px;letter-spacing:.12em;margin:0 0 12px 0;text-transform:uppercase}
+  h1 span{color:#32f08c}
+  p{color:rgba(232,246,255,.6);font-size:13px;line-height:1.8;margin:16px 0 28px 0}
+  .links{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:10px 18px;border:1px solid rgba(232,246,255,.2);
+       color:#e8f6ff;font-size:12px;letter-spacing:.08em;border-radius:2px;
+       transition:border-color .2s,background .2s}
+  .btn:hover{border-color:#32f08c;background:rgba(50,240,140,.08)}
+  .btn.primary{border-color:#32f08c;color:#32f08c}
+  small{display:block;margin-top:28px;font-size:10px;color:rgba(232,246,255,.35);letter-spacing:.2em}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#32f08c;margin-right:6px;
+       animation:blink 1.2s steps(1) infinite}
+  @keyframes blink{50%{opacity:.2}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>RAG <span>HUD</span></h1>
+  <p><span class="dot"></span>知识库数据采集 → 向量入库 → 检索 → 生成，这条黑箱链路的**有向数据流**可视化。<br/>
+  零依赖 Canvas 2D，按 chunk id 哈希稳定映射到环上固定槽位，支持 SSE 直连与会话回放。</p>
+  <div class="links">
+    <a class="btn primary" href="./rag-hud-demo.html">▶ 在线演示</a>
+    <a class="btn" href="https://github.com/lijishuang/rag-hud">GitHub 仓库</a>
+    <a class="btn" href="https://github.com/lijishuang/rag-hud#安装">文档</a>
+  </div>
+  <small>v1.0.0 · MIT License</small>
+</div>
+<script>
+// 1.5s 后自动跳转演示
+setTimeout(()=>{ location.href = './rag-hud-demo.html'; }, 1500);
+</script>
+</body>
+</html>
