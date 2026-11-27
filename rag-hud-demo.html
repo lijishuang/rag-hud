@@ -123,7 +123,7 @@
       <li>重排<small>RERANK</small></li>
       <li>生成<small>ANSWER</small></li>
     </ol>
-    <p class="hint">实线 = 采集源写向量库 · 虚线 = 检索回传查询端<br>白点 = 召回的片段 · 绿点 = 重排命中 · 环进度 = 阶段进度</p>
+    <p class="hint">实线 = 采集源写向量库 · 虚线 = 检索回传查询端<br>白点 = 召回的片段 · 绿点 = 重排命中 · 按 <b>R</b> 回放上一轮</p>
   </footer>
 </div>
 
@@ -168,7 +168,7 @@
   });
 
   /* ---------------- SSE ---------------- */
-  hud.attachSSE(API, {
+  const sseHandle = hud.attachSSE(API, {
     query: QUERY,
     reconnect: true,
     reconnectDelay: 3200,
@@ -185,9 +185,17 @@
   });
 
   /* ---------------- 后端不可达时的本地模拟 ---------------- */
-  let mockTimer = null;
-  function startMock() {
+  let mockTimer = null, answerTimer = null, mockOn = false;
+
+  function stopMock() {
+    mockOn = false;
     clearTimeout(mockTimer);
+    clearInterval(answerTimer);
+  }
+
+  function startMock() {
+    stopMock();
+    mockOn = true;
     const LABELS = ['手册 §3.2 计费规则', 'FAQ 退款政策', 'API /v2/search', '工单 #4821 记录',
       'SLA 协议 第 4 条', '定价页快照', '上线公告 2026-09', '风控策略说明'];
     const CHUNKS = Array.from({ length: 36 }, (_, i) => ({
@@ -203,23 +211,29 @@
     hud.log('[embed] dim=1536 norm=1.000');
 
     mockTimer = setTimeout(() => {
+      if (!mockOn) return;
       hud.setStage('retrieve');
       hud.setCandidates(CHUNKS);
     }, 900);
 
     mockTimer = setTimeout(() => {
+      if (!mockOn) return;
       hud.setStage('rerank');
-      setTimeout(() => hud.setHits(CHUNKS.slice(0, 8), { recall: 0.96, latency: 0.42 }), 380);
+      setTimeout(() => {
+        if (mockOn) hud.setHits(CHUNKS.slice(0, 8), { recall: 0.96, latency: 0.42 });
+      }, 380);
     }, 2600);
 
     mockTimer = setTimeout(() => {
+      if (!mockOn) return;
       hud.setStage('generate');
       let i = 0;
-      const timer = setInterval(() => {
+      answerTimer = setInterval(() => {
+        if (!mockOn) { clearInterval(answerTimer); return; }
         if (i >= ANSWER.length) {
-          clearInterval(timer);
+          clearInterval(answerTimer);
           hud.done({ tokens: 186, latency: 2.4 });
-          mockTimer = setTimeout(startMock, 3600);
+          mockTimer = setTimeout(() => { if (mockOn) startMock(); }, 3600);
           return;
         }
         hud.token(ANSWER.slice(i, i + 4));
@@ -227,6 +241,16 @@
       }, 45);
     }, 3900);
   }
+
+  /* ---------------- 按 R 回放最近一轮 ---------------- */
+  addEventListener('keydown', (e) => {
+    if (e.key !== 'r' && e.key !== 'R') return;
+    const session = hud.exportSession();
+    if (!session) return;
+    stopMock();
+    sseHandle.close();
+    hud.replay(session, { speed: 1, loop: true });
+  });
 })();
 </script>
 </body>

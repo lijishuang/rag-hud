@@ -14,6 +14,7 @@
 - **两层画布**：底层用「只压暗不清屏」制造运动拖尾，上层保持线条与文字锐利，兼顾流体感与可读性。
 - **一个 canvas 跑起来**：流动层由库内部创建离屏画布合成，接入方只需提供一个有尺寸的 canvas。
 - **SSE 直连**：内置 `attachSSE()`，按约定的事件协议即可对接任何后端；连不上时可自行降级为本地模拟。
+- **会话录制与回放**：每轮事件自动录制，导出为 JSON 后可离线按时间轴重放、拖动进度条，把可视化变成排查工具。
 - **性能友好**：流动层 1x 分辨率、DPR 上限 2、ResizeObserver 自适应，`prefers-reduced-motion` 自动降速。
 
 ![检索命中](docs/images/retrieval.jpg)
@@ -114,6 +115,25 @@ res.write(`event: stage\ndata: ${JSON.stringify({ name: 'retrieve' })}\n\n`);
 | `font` | 系统等宽字体 | 画布内文字字体 |
 | `reducedMotion` | 跟随系统 | 强制关闭动效降级 |
 
+## 会话录制与回放
+
+每一轮事件都会被自动录制（`record: false` 可关闭），导出的就是一串纯 JSON，可以直接落盘存档。
+
+```js
+const session = hud.exportSession();   // { version, ms, events: [{ t, kind, data }] }
+
+const player = hud.replay(session, { speed: 1, loop: false, onEnd: () => {} });
+player.pause();
+player.seek(session.ms * 0.6);         // 拖到 60% 处
+player.progress();                     // 0~1，可直接绑定进度条
+```
+
+录制格式与 SSE 事件一一对应，因此可以把线上某次查询的完整会话存下来，离线复现问题，不需要真实后端在线。
+
+演示页按 **R** 即可回放最近一轮。
+
+> 回放期间建议先关闭 SSE 连接（`handle.close()`），避免实时事件与录制时间线互相干扰。
+
 ## 性能
 
 | 项目 | 做法 |
@@ -138,7 +158,7 @@ res.write(`event: stage\ndata: ${JSON.stringify({ name: 'retrieve' })}\n\n`);
 
 - [ ] ECharts / D3 场景下的嵌入示例
 - [ ] WebGL 渲染路径，支持上万条流束
-- [ ] 时间轴回放：把一次检索会话导出为可回放数据
+- [x] 时间轴回放：把一次检索会话导出为可回放数据
 - [ ] 主题预设（除默认黑白 + 绿之外）
 
 ## License

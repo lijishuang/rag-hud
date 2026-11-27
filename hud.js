@@ -73,6 +73,62 @@
 
     var NODES = [], WEB = [], STORE = [], OCCUPIED = new Set();
     var seedState = 20261127;
+
+    /* ---------------- 会话录制 / 回放 ---------------- */
+    var REC = { on: opts.record !== false, t0: 0, events: [], closed: false };
+    var LAST = null;   // 最近一轮完整会话
+    var rp = null;     // 当前回放状态
+
+    function rec(kind, data) {
+      if (!REC.on || rp || REC.closed) return;
+      if (!REC.events.length) REC.t0 = now;
+      REC.events.push({ t: Math.round((now - REC.t0) * 1000), kind: kind, data: data });
+      if (kind === 'done') {
+        LAST = { version: 1, ms: Math.round((now - REC.t0) * 1000), events: REC.events.slice() };
+        REC.events = [];
+        REC.closed = true;
+      }
+    }
+
+    function applyEvent(e) {
+      var d = e.data || {};
+      switch (e.kind) {
+        case 'stage': setStage(d.name, d.progress); break;
+        case 'candidates': buildNodes(d.chunks || []); break;
+        case 'hits': setHits(d.chunks || [], d.meta || {}); break;
+        case 'token': pushToken(d.text); break;
+        case 'log': pushLog(d.text); break;
+        case 'done': finish(d.meta || {}); break;
+      }
+    }
+
+    function advanceReplay(dt) {
+      rp.clock += dt * 1000 * rp.speed;
+      var list = rp.s.events;
+      while (rp.idx < list.length && list[rp.idx].t <= rp.clock) applyEvent(list[rp.idx++]);
+
+      if (rp.idx >= list.length) {
+        if (rp.loop) {
+          rp.idx = 0;
+          rp.clock = 0;
+          reset();
+        } else if (!rp.ended) {
+          rp.ended = true;
+          rp.playing = false;
+          if (rp.onEnd) rp.onEnd();
+        }
+      }
+    }
+
+    function seekReplay(ms) {
+      if (!rp) return;
+      var list = rp.s.events;
+      rp.clock = clamp(ms, 0, rp.s.ms);
+      rp.idx = 0;
+      rp.ended = false;
+      reset();
+      while (rp.idx < list.length && list[rp.idx].t <= rp.clock) applyEvent(list[rp.idx++]);
+    }
     function seeded() {
       seedState = (seedState * 1664525 + 1013904223) >>> 0;
       return seedState / 4294967296;
@@ -159,6 +215,7 @@
 
     /* ---------------- 状态变化 ---------------- */
     function setStage(name, progress) {
+      if (name !== 'done') rec('stage', { name: name, progress: progress });
       if (STAGE_ORDER.indexOf(name) >= 0 && name !== app.stage) {
         app.stage = name;
         app.stageAt = now;
@@ -176,6 +233,7 @@
     }
 
     function buildNodes(list) {
+      rec('candidates', { chunks: list });
       app.candidates = list;
       setStore(list.map(function (c) { return c.id; }));
 
@@ -213,6 +271,7 @@
 
     function setHits(list, meta) {
       meta = meta || {};
+      rec('hits', { chunks: list, meta: { recall: meta.recall, latency: meta.latency } });
       app.hits = list;
       app.hitsAt = now;
       app.hitSlots = new Set(list.map(function (c) { return slotOf(c.id); }));
@@ -242,6 +301,7 @@
     }
 
     function pushLog(text) {
+      rec('log', { text: text });
       app.logs.push({ text: text, t: now });
       if (app.logs.length > 60) app.logs.splice(0, app.logs.length - 60);
       if (opts.onLog) opts.onLog(text);
@@ -249,6 +309,7 @@
 
     function pushToken(text) {
       if (!text) return;
+      rec('token', { text: text });
       app.answer += text;
       app.tokens += 1;
       if (opts.onAnswer) opts.onAnswer(app.answer, false);
@@ -256,6 +317,7 @@
 
     function finish(meta) {
       meta = meta || {};
+      rec('done', { meta: { tokens: meta.tokens, latency: meta.latency } });
       app.tokens = meta.tokens != null ? meta.tokens : app.answer.length;
       if (meta.latency != null) app.latency = meta.latency;
       setStage('done');
@@ -270,6 +332,9 @@
       NODES = []; WEB = []; setStore([]);
       seedState = 20261127;
       lastStats = '';
+      REC.events = [];
+      REC.t0 = 0;
+      REC.closed = false;
       if (opts.onStage) opts.onStage('idle', 0);
       if (opts.onAnswer) opts.onAnswer('', false);
     }
@@ -715,6 +780,8 @@
       lastTs = ts;
       now = ts / 1000;
 
+      if (rp && rp.playing) advanceReplay(dt);
+
       var base = STAGE_BASE[app.stage] != null ? STAGE_BASE[app.stage] : app.gp;
       var span = STAGE_SPAN[app.stage] || 0;
       var est = STAGE_EST[app.stage] || 1;
@@ -761,9 +828,41 @@
       done: finish,
       log: pushLog,
       reset: reset,
+      /** 开启/关闭录制，关闭后 exportSession 仍返回上一轮 */
+      record: function (on) { REC.on = on !== false; REC.events = []; REC.closed = false; },
+      /** 导出最近一轮会话，可存成 JSON 离线回放 */
+      exportSession: function () { return LAST; },
+      /**
+       * 回放一轮会话
+       * @param session 省略时回放最近一轮
+       * @param options { speed, loop, onEnd }
+       */
+      replay: function (session, options) {
+        var s = session || LAST;
+        if (!s || !s.events || !s.events.length) return null;
+        options = options || {};
+
+        reset();
+        rp = {
+          s: s, idx: 0, clock: 0,
+          speed: options.speed || 1,
+          loop: !!options.loop,
+          playing: true, ended: false,
+          onEnd: options.onEnd || null
+        };
+
+        return {
+          play: function () { if (rp) { rp.playing = true; } },
+          pause: function () { if (rp) { rp.playing = false; } },
+          stop: function () { rp = null; },
+          seek: seekReplay,
+          progress: function () { return rp ? clamp(rp.clock / (rp.s.ms || 1)) : 0; }
+        };
+      },
       state: function () { return app; },
       destroy: function () {
         alive = false;
+        rp = null;
         cancelAnimationFrame(raf);
         if (ro) ro.disconnect();
         else window.removeEventListener('resize', layout);

@@ -63,6 +63,38 @@ export interface HitsMeta {
   latency?: number;
 }
 
+/** 录制下来的一条事件，t 为相对会话开始的毫秒数 */
+export interface SessionEvent {
+  t: number;
+  kind: 'stage' | 'candidates' | 'hits' | 'token' | 'log' | 'done';
+  data: Record<string, unknown>;
+}
+
+export interface Session {
+  version: number;
+  /** 会话总时长（毫秒） */
+  ms: number;
+  events: SessionEvent[];
+}
+
+export interface ReplayOptions {
+  /** 播放倍速，默认 1 */
+  speed?: number;
+  /** 是否循环，默认 false */
+  loop?: boolean;
+  onEnd?(): void;
+}
+
+export interface ReplayHandle {
+  play(): void;
+  pause(): void;
+  stop(): void;
+  /** 拖动到指定时间点（毫秒），会先重置再快进 */
+  seek(ms: number): void;
+  /** 0~1 */
+  progress(): number;
+}
+
 export interface HudOptions {
   /** 采集源，默认 5 个（网页抓取 / PDF 文档 / 数据库 / 工单系统 / API 推送） */
   sources?: Source[];
@@ -75,6 +107,8 @@ export interface HudOptions {
   colors?: HudColors;
   /** 强制开启/关闭动效降级，默认跟随 prefers-reduced-motion */
   reducedMotion?: boolean;
+  /** 是否自动录制每一轮会话，默认 true */
+  record?: boolean;
 
   onStage?(name: StageName, progress: number): void;
   onStats?(stats: HudStats): void;
@@ -127,6 +161,12 @@ export interface RagHudInstance {
   log(text: string): void;
   /** 清空全部状态，进入下一轮 */
   reset(): void;
+  /** 开启/关闭录制 */
+  record(on?: boolean): void;
+  /** 最近一轮完整会话，可直接 JSON 序列化存档 */
+  exportSession(): Session | null;
+  /** 回放一轮会话；省略 session 时回放最近一轮 */
+  replay(session?: Session | null, options?: ReplayOptions): ReplayHandle | null;
   state(): HudState;
   /** 停止渲染并释放 rAF、ResizeObserver 与 SSE 连接 */
   destroy(): void;
