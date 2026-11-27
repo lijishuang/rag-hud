@@ -874,6 +874,7 @@
         var opened = false;
         var closed = false;
         var msgCount = 0;
+        var firstFail = false;
 
         function connect() {
           if (closed) return;
@@ -883,18 +884,34 @@
           catch (e) { if (options.onFail) options.onFail(e); return; }
 
           sse = es;
+
+          // 浏览器 EventSource 在连接被拒绝时不会把 readyState 变成 CLOSED，
+          // 会永远停在 CONNECTING 并持续重连。因此加一个首次消息超时：
+          // 5 秒内未收到任何事件 → 判定离线，主动关闭并回调 onFail。
+          var watchdog = setTimeout(function () {
+            if (msgCount === 0) {
+              try { es.close(); } catch (_) {}
+              sse = null;
+              if (!firstFail) {
+                firstFail = true;
+                if (options.onStatus) options.onStatus('offline');
+                if (options.onFail) options.onFail();
+              }
+            }
+          }, options.firstMessageTimeout || 5000);
+
           es.onopen = function () {
             opened = true;
             if (options.onStatus) options.onStatus('live');
           };
           es.onerror = function () {
-            // readyState 变成 CLOSED 且从未收到消息，判定为首次连接失败
-            // 浏览器在 EventSource 连接拒绝时会先触发一次瞬时 onopen 再立刻 onerror，
-            // 所以不能再用 opened 标志作为判断依据
+            // 已经被 watchdog 处理过首次失败则不再重复
+            if (firstFail) return;
+            // 如果 readyState 确实变成 CLOSED（Chrome 的 ERR_CONNECTION_REFUSED 路径），
+            // 也一并触发离线逻辑；正常运行期的重连错误不计入
             if (es.readyState === EventSource.CLOSED && msgCount === 0) {
-              es.close();
-              sse = null;
-              opened = false;
+              clearTimeout(watchdog);
+              firstFail = true;
               if (options.onStatus) options.onStatus('offline');
               if (options.onFail) options.onFail();
             }
