@@ -1,0 +1,38 @@
+name: 功能建议
+description: 新的可视化形态、接口能力或适配场景
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请描述「要解决的问题」而不是「要加的功能」，便于评估取舍。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 背景与问题
+      placeholder: 在大屏场景下 1080p 投影时，左侧日志字号偏小看不清。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你的方案
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      options:
+        - 采集流 / 向量库环
+        - 检索网络 / 重排命中
+        - SSE 协议与接入
+        - 性能与渲染管线
+        - 文档与示例
+    validations:
+      required: true

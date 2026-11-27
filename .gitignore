@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# 依赖
+node_modules/
+
+# 日志与本地环境
+*.log
+.env
+.env.*
+
+# 编辑器
+.vscode/
+.idea/
+
+# 工具临时产物
+.screenshots/
+.trae-html-share-packages/

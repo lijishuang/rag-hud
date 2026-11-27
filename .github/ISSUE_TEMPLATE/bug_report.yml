@@ -1,0 +1,59 @@
+name: Bug 报告
+description: 渲染异常、性能问题或接口不生效
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请确认已查看 README 中的「性能」与「SSE 事件协议」章节。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 现象
+      description: 实际看到了什么？附截图或录屏更好。
+      placeholder: 环上槽位不再闪烁，数据包停在半路。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 用 mock-sse-server.js 启动后端
+        2. 打开 rag-hud-demo.html
+        3. 等待进入 retrieve 阶段
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: hud.js 版本
+      placeholder: 1.0.0
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 浏览器与版本、屏幕分辨率、设备像素比
+      placeholder: Chrome 131 / 2560x1440 / DPR 2
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 数据来源
+      options:
+        - SSE 实时
+        - 手动调用 API
+        - 页面自带模拟
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: 控制台输出
+      render: shell
